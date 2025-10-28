@@ -1,0 +1,151 @@
+{
+  "scenario_id": "ml_postmortem_rubric_v1",
+  "question": "Review the candidate response summarising the incident with the toxicity classifier. You must grade the response against the rubric, using evidence from both the incident log and the golden analysis. Return a JSON verdict only when you are confident about every criterion.",
+  "incident_log": [
+    "Offline AUC stayed flat because validation users overlapped with training users after we hashed user_id but split post-join.",
+    "Production recall dropped 18% on the newest demographics segment that was only present in the incremental batch.",
+    "Positive labels make up 3.8% of the stream; we only added 600 hand labels in the new batch.",
+    "Golden analysis recommends rebuilding the split before hashing identifiers, reweighting positives during training, and shipping a recall alert."
+  ],
+  "golden_response": "Root cause is user-level leakage: we hashed user_id prior to the train/validation split, so users appear in both sets. That kept validation AUC artificially high while real recall cratered on unseen accounts. Secondary contributor is extreme class imbalance (3.8% positives) made worse by the tiny incremental batch. Fix by recreating user-level splits before hashing, retraining with class weights + downsampling the majority class, and adding a production recall alert keyed on the new demographic slice.",
+  "candidate_response": "The production drop mostly traces back to the new tokenizer and slight class imbalance. We swapped tokenization for the latest multilingual model and that likely changed the feature distribution. I believe the validation split protected us against overfitting because we hashed identifiers before training. For the imbalance we can increase focal loss gamma and continue adding more long-tail examples; an alert would be nice-to-have once this retraining ships.",
+  "rubric": [
+    {
+      "criterion_id": "data_leak",
+      "title": "Flags the user-level split leakage as the primary issue",
+      "expected_score": "fail",
+      "must_include": [
+        [
+          "user_id",
+          "user id",
+          "user-level",
+          "user level",
+          "user identifier",
+          "hashed identifiers"
+        ],
+        [
+          "leak",
+          "leakage"
+        ]
+      ],
+      "failure_markers": [
+        "missing",
+        "did not",
+        "fails to",
+        "no mention",
+        "never",
+        "does not acknowledge",
+        "do not acknowledge",
+        "fails to acknowledge",
+        "ignores",
+        "misidentifies",
+        "incorrectly",
+        "wrongly"
+      ]
+    },
+    {
+      "criterion_id": "class_balance",
+      "title": "Addresses the 3.8% positive rate with concrete mitigation",
+      "expected_score": "fail",
+      "must_include": [
+        [
+          "3.8%",
+          "3.8 percent",
+          "three point eight",
+          "0.038",
+          "positive rate",
+          "positive class",
+          "minority class",
+          "class imbalance",
+          "class-imbalance",
+          "imbalance",
+          "rebalancing",
+          "rebalance",
+          "balance"
+        ]
+      ],
+      "failure_markers": [
+        "insufficient",
+        "missing",
+        "does not address",
+        "ignores",
+        "miss",
+        "lack",
+        "never",
+        "superficial",
+        "overlooks",
+        "fails to",
+        "does not propose"
+      ]
+    },
+    {
+      "criterion_id": "monitoring",
+      "title": "Proposes monitoring to track recall on the new cohort",
+      "expected_score": "fail",
+      "must_include": [
+        [
+          "recall"
+        ],
+        [
+          "alert",
+          "monitor",
+          "monitoring",
+          "tracking"
+        ]
+      ],
+      "failure_markers": [
+        "absent",
+        "missing",
+        "lacks",
+        "not propose",
+        "no mention",
+        "optional",
+        "nice-to-have"
+      ]
+    }
+  ],
+  "expected_overall_decision": "reject",
+  "acceptable_overall_decisions": [
+    "reject",
+    "fail"
+  ],
+  "summary_requirements": [
+    "data leakage",
+    "class imbalance",
+    "recall monitoring",
+    "3.8",
+    "18%"
+  ],
+  "improvement_keyword_sets": [
+    [
+      "rebuild",
+      "resplit",
+      "user-level split",
+      "recreate split",
+      "partition",
+      "train/validation split",
+      "train validation split",
+      "train-val split",
+      "train val split"
+    ],
+    [
+      "class weights",
+      "reweight",
+      "resample",
+      "downsample",
+      "downsampling",
+      "weighted sampling",
+      "smote",
+      "resampling",
+      "weighting",
+      "balanced batch"
+    ],
+    [
+      "recall alert",
+      "monitor",
+      "dashboard",
+      "threshold",
+      "canary"
+    ]
+  ]
+}
